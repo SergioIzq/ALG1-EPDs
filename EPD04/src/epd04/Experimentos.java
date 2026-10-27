@@ -1,5 +1,10 @@
 package epd04;
 
+import epd04.interfaces.IExperimentos;
+import epd04.interfaces.IGeneradorMatrices;
+import epd04.interfaces.IMultiplicacionMatrices;
+import epd04.interfaces.IResultadoExperimento;
+
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
@@ -31,9 +36,8 @@ import java.util.function.BinaryOperator;
  *  - Las ejecuciones de ambos algoritmos se alternan para que cualquier
  *    perturbación temporal afecte por igual a los dos.
  *
- * @author Sergio
  */
-public final class Experimentos {
+public final class Experimentos implements IExperimentos {
 
     /** Dimensiones n de las matrices cuadradas n x n que se analizan. */
     public static final int[] DIMENSIONES = {10, 25, 50, 75, 100, 150, 200, 250, 300, 400, 500, 600, 700, 800};
@@ -52,10 +56,23 @@ public final class Experimentos {
      * variable (y mostrarla al final del programa) el cálculo es siempre
      * necesario y las mediciones son fiables.
      */
-    private static long consumo = 0;
+    private long consumo = 0;
 
-    /** Constructor privado: clase de utilidad que no se instancia. */
-    private Experimentos() {
+    /** Generador de las matrices aleatorias de cada experimento. */
+    private final IGeneradorMatrices generador;
+
+    /** Algoritmos de multiplicación que se miden. */
+    private final IMultiplicacionMatrices multiplicacion;
+
+    /**
+     * Crea el sistema de experimentación con sus dependencias.
+     *
+     * @param generador      generador de matrices aleatorias
+     * @param multiplicacion algoritmos de multiplicación a medir
+     */
+    public Experimentos(IGeneradorMatrices generador, IMultiplicacionMatrices multiplicacion) {
+        this.generador = generador;
+        this.multiplicacion = multiplicacion;
     }
 
     // =========================================================================
@@ -68,12 +85,13 @@ public final class Experimentos {
      * fase, las primeras mediciones incluirían el tiempo de interpretación y
      * compilación, y no serían comparables con las demás.
      */
-    public static void calentarJVM() {
-        int[][] a = GeneradorMatrices.generarMatrizAleatoria(64, 64);
-        int[][] b = GeneradorMatrices.generarMatrizAleatoria(64, 64);
+    @Override
+    public void calentarJVM() {
+        int[][] a = generador.generarMatrizAleatoria(64, 64);
+        int[][] b = generador.generarMatrizAleatoria(64, 64);
         for (int i = 0; i < 300; i++) {
-            consumir(MultiplicacionMatrices.multiplicarIterativo(a, b));
-            consumir(MultiplicacionMatrices.multiplicarRecursivo(a, b));
+            consumir(multiplicacion.multiplicarIterativo(a, b));
+            consumir(multiplicacion.multiplicarRecursivo(a, b));
         }
     }
 
@@ -88,16 +106,17 @@ public final class Experimentos {
      * @param dimensiones dimensiones a analizar
      * @return resultados ordenados por dimensión
      */
-    public static List<ResultadoExperimento> ejecutarTodos(int[] dimensiones) {
-        List<ResultadoExperimento> resultados = new ArrayList<>();
+    @Override
+    public List<IResultadoExperimento> ejecutarTodos(int[] dimensiones) {
+        List<IResultadoExperimento> resultados = new ArrayList<>();
         for (int n : dimensiones) {
-            ResultadoExperimento r = ejecutarExperimento(n);
+            IResultadoExperimento r = ejecutarExperimento(n);
             resultados.add(r);
             System.out.printf(Locale.ROOT,
                     "   n = %4d  (%2d repeticiones)  iterativo: %11.4f ms   recursivo: %11.4f ms   %s%n",
-                    n, r.repeticiones(),
-                    r.minIterativo() / NS_POR_MS, r.minRecursivo() / NS_POR_MS,
-                    r.resultadosIguales() ? "[resultados iguales]" : "[ERROR: resultados distintos]");
+                    n, r.getRepeticiones(),
+                    r.getMinIterativo() / NS_POR_MS, r.getMinRecursivo() / NS_POR_MS,
+                    r.isResultadosIguales() ? "[resultados iguales]" : "[ERROR: resultados distintos]");
         }
         return resultados;
     }
@@ -106,10 +125,10 @@ public final class Experimentos {
      * Ejecuta el experimento para matrices n x n: genera A y B aleatoriamente
      * y mide ambos algoritmos sobre ellas.
      */
-    private static ResultadoExperimento ejecutarExperimento(int n) {
+    private IResultadoExperimento ejecutarExperimento(int n) {
         // Generación de las matrices aleatorias (no forma parte del tiempo medido).
-        int[][] a = GeneradorMatrices.generarMatrizAleatoria(n, n);
-        int[][] b = GeneradorMatrices.generarMatrizAleatoria(n, n);
+        int[][] a = generador.generarMatrizAleatoria(n, n);
+        int[][] b = generador.generarMatrizAleatoria(n, n);
 
         int repeticiones = repeticionesPara(n);
         long[] tiemposIter = new long[repeticiones];
@@ -123,11 +142,11 @@ public final class Experimentos {
 
         for (int r = 0; r < repeticiones; r++) {
             // Se alternan los algoritmos en cada repetición.
-            resultadoIter = medir(MultiplicacionMatrices::multiplicarIterativo, a, b, tiemposIter, r);
-            resultadoRec = medir(MultiplicacionMatrices::multiplicarRecursivo, a, b, tiemposRec, r);
+            resultadoIter = medir(multiplicacion::multiplicarIterativo, a, b, tiemposIter, r);
+            resultadoRec = medir(multiplicacion::multiplicarRecursivo, a, b, tiemposRec, r);
         }
 
-        boolean iguales = MultiplicacionMatrices.sonIguales(resultadoIter, resultadoRec);
+        boolean iguales = multiplicacion.sonIguales(resultadoIter, resultadoRec);
         return new ResultadoExperimento(n, repeticiones,
                 minimo(tiemposIter), media(tiemposIter),
                 minimo(tiemposRec), media(tiemposRec),
@@ -140,7 +159,7 @@ public final class Experimentos {
      *
      * @return la matriz producto calculada
      */
-    private static int[][] medir(BinaryOperator<int[][]> algoritmo, int[][] a, int[][] b,
+    private int[][] medir(BinaryOperator<int[][]> algoritmo, int[][] a, int[][] b,
             long[] tiempos, int posicion) {
         long inicio = System.nanoTime();
         int[][] c = algoritmo.apply(a, b);
@@ -168,13 +187,14 @@ public final class Experimentos {
         return 3;
     }
 
-    /** Acumula un valor del resultado en la variable de consumo (ver {@link #consumo}). */
-    private static void consumir(int[][] c) {
+    /** Acumula un valor del resultado en la variable de consumo (ver consumo). */
+    private void consumir(int[][] c) {
         consumo += c[c.length - 1][c[0].length - 1];
     }
 
     /** Devuelve el valor acumulado en la variable de consumo. */
-    public static long getConsumo() {
+    @Override
+    public long getConsumo() {
         return consumo;
     }
 
@@ -201,20 +221,21 @@ public final class Experimentos {
     /**
      * Muestra por consola la tabla de tiempos ordenada por dimensión.
      */
-    public static void mostrarTabla(List<ResultadoExperimento> resultados) {
+    @Override
+    public void mostrarTabla(List<IResultadoExperimento> resultados) {
         String separador = "   " + "-".repeat(108);
         System.out.println(separador);
         System.out.printf("   %6s | %5s | %15s | %15s | %15s | %15s | %9s | %8s%n",
                 "n", "reps", "Iter. mín (ms)", "Iter. media", "Rec. mín (ms)", "Rec. media",
                 "Rec/Iter", "Correcto");
         System.out.println(separador);
-        for (ResultadoExperimento r : resultados) {
+        for (IResultadoExperimento r : resultados) {
             System.out.printf(Locale.ROOT, "   %6d | %5d | %15.4f | %15.4f | %15.4f | %15.4f | %9.2f | %8s%n",
-                    r.n(), r.repeticiones(),
-                    r.minIterativo() / NS_POR_MS, r.mediaIterativo() / NS_POR_MS,
-                    r.minRecursivo() / NS_POR_MS, r.mediaRecursivo() / NS_POR_MS,
+                    r.getDimension(), r.getRepeticiones(),
+                    r.getMinIterativo() / NS_POR_MS, r.getMediaIterativo() / NS_POR_MS,
+                    r.getMinRecursivo() / NS_POR_MS, r.getMediaRecursivo() / NS_POR_MS,
                     r.cocienteRecursivoIterativo(),
-                    r.resultadosIguales() ? "sí" : "NO");
+                    r.isResultadosIguales() ? "sí" : "NO");
         }
         System.out.println(separador);
     }
@@ -228,27 +249,28 @@ public final class Experimentos {
      *    exponente global. Se calcula con n >= 100 y con n >= 300 (cuando las
      *    matrices ya no caben en la caché L2 y el comportamiento es estable).
      */
-    public static void mostrarAnalisisEmpirico(List<ResultadoExperimento> resultados) {
+    @Override
+    public void mostrarAnalisisEmpirico(List<IResultadoExperimento> resultados) {
         String separador = "   " + "-".repeat(78);
         System.out.println(separador);
         System.out.printf("   %6s | %16s | %16s | %14s | %14s%n",
                 "n", "Iter. T/n³ (ns)", "Rec. T/n³ (ns)", "Exp. iterat.", "Exp. recursivo");
         System.out.println(separador);
         for (int i = 0; i < resultados.size(); i++) {
-            ResultadoExperimento r = resultados.get(i);
-            double n3 = Math.pow(r.n(), 3);
+            IResultadoExperimento r = resultados.get(i);
+            double n3 = Math.pow(r.getDimension(), 3);
             String expIter = "-";
             String expRec = "-";
             if (i > 0) {
-                ResultadoExperimento ant = resultados.get(i - 1);
-                double logN = Math.log((double) r.n() / ant.n());
+                IResultadoExperimento ant = resultados.get(i - 1);
+                double logN = Math.log((double) r.getDimension() / ant.getDimension());
                 expIter = String.format(Locale.ROOT, "%.2f",
-                        Math.log((double) r.minIterativo() / ant.minIterativo()) / logN);
+                        Math.log((double) r.getMinIterativo() / ant.getMinIterativo()) / logN);
                 expRec = String.format(Locale.ROOT, "%.2f",
-                        Math.log((double) r.minRecursivo() / ant.minRecursivo()) / logN);
+                        Math.log((double) r.getMinRecursivo() / ant.getMinRecursivo()) / logN);
             }
             System.out.printf(Locale.ROOT, "   %6d | %16.3f | %16.3f | %14s | %14s%n",
-                    r.n(), r.minIterativo() / n3, r.minRecursivo() / n3, expIter, expRec);
+                    r.getDimension(), r.getMinIterativo() / n3, r.getMinRecursivo() / n3, expIter, expRec);
         }
         System.out.println(separador);
         for (int nMinimo : new int[]{100, 300}) {
@@ -265,15 +287,16 @@ public final class Experimentos {
      *
      * @param iterativo true para el algoritmo iterativo, false para el recursivo
      */
-    public static double pendienteLogLog(List<ResultadoExperimento> resultados, boolean iterativo, int nMinimo) {
+    @Override
+    public double pendienteLogLog(List<IResultadoExperimento> resultados, boolean iterativo, int nMinimo) {
         double sx = 0, sy = 0, sxx = 0, sxy = 0;
         int cuenta = 0;
-        for (ResultadoExperimento r : resultados) {
-            if (r.n() < nMinimo) {
+        for (IResultadoExperimento r : resultados) {
+            if (r.getDimension() < nMinimo) {
                 continue;
             }
-            double x = Math.log(r.n());
-            double y = Math.log(iterativo ? r.minIterativo() : r.minRecursivo());
+            double x = Math.log(r.getDimension());
+            double y = Math.log(iterativo ? r.getMinIterativo() : r.getMinRecursivo());
             sx += x;
             sy += y;
             sxx += x * x;
@@ -289,11 +312,12 @@ public final class Experimentos {
      *
      * @param iterativo true para el algoritmo iterativo, false para el recursivo
      */
-    public static double constanteAjusteCubico(List<ResultadoExperimento> resultados, boolean iterativo) {
+    @Override
+    public double constanteAjusteCubico(List<IResultadoExperimento> resultados, boolean iterativo) {
         double numerador = 0, denominador = 0;
-        for (ResultadoExperimento r : resultados) {
-            double n3 = Math.pow(r.n(), 3);
-            double t = iterativo ? r.minIterativo() : r.minRecursivo();
+        for (IResultadoExperimento r : resultados) {
+            double n3 = Math.pow(r.getDimension(), 3);
+            double t = iterativo ? r.getMinIterativo() : r.getMinRecursivo();
             numerador += t * n3;
             denominador += n3 * n3;
         }
@@ -313,20 +337,21 @@ public final class Experimentos {
      * @param fichero    ruta del CSV de salida (por ejemplo resultados/tiempos.csv)
      * @throws IOException si no se puede escribir el fichero
      */
-    public static void guardarCSV(List<ResultadoExperimento> resultados, Path fichero) throws IOException {
+    @Override
+    public void guardarCSV(List<IResultadoExperimento> resultados, Path fichero) throws IOException {
         if (fichero.getParent() != null) {
             Files.createDirectories(fichero.getParent());
         }
         try (PrintWriter salida = new PrintWriter(Files.newBufferedWriter(fichero, StandardCharsets.UTF_8))) {
-            salida.println("n;repeticiones;iterativo_min_ns;iterativo_media_ns;recursivo_min_ns;recursivo_media_ns;rec_entre_iter;resultados_iguales");
-            for (ResultadoExperimento r : resultados) {
+            salida.println("dimension;repeticiones;iterativo_min_ns;iterativo_media_ns;recursivo_min_ns;recursivo_media_ns;rec_entre_iter;resultados_iguales");
+            for (IResultadoExperimento r : resultados) {
                 // Formato español: coma decimal en el cociente Rec/Iter.
                 salida.printf(Locale.forLanguageTag("es-ES"), "%d;%d;%d;%.0f;%d;%.0f;%.2f;%s%n",
-                        r.n(), r.repeticiones(),
-                        r.minIterativo(), r.mediaIterativo(),
-                        r.minRecursivo(), r.mediaRecursivo(),
+                        r.getDimension(), r.getRepeticiones(),
+                        r.getMinIterativo(), r.getMediaIterativo(),
+                        r.getMinRecursivo(), r.getMediaRecursivo(),
                         r.cocienteRecursivoIterativo(),
-                        r.resultadosIguales() ? "si" : "no");
+                        r.isResultadosIguales() ? "si" : "no");
             }
         }
     }

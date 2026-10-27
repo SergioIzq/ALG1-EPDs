@@ -1,5 +1,9 @@
 package epd04;
 
+import epd04.interfaces.IExperimentos;
+import epd04.interfaces.IGrafica;
+import epd04.interfaces.IResultadoExperimento;
+
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Font;
@@ -37,9 +41,8 @@ import javax.swing.WindowConstants;
  *  - Una curva con marcadores para cada algoritmo (todas las instancias).
  *  - En trazo discontinuo, el ajuste teórico c·n³ de cada algoritmo.
  *
- * @author Sergio
  */
-public final class Grafica {
+public final class Grafica implements IGrafica {
 
     private static final int ANCHO = 1600;
     private static final int ALTO = 1000;
@@ -53,8 +56,16 @@ public final class Grafica {
     private static final Color COLOR_REJILLA = new Color(0xE3, 0xE3, 0xE3);
     private static final Color COLOR_TEXTO = new Color(0x22, 0x22, 0x22);
 
-    /** Constructor privado: clase de utilidad que no se instancia. */
-    private Grafica() {
+    /** Sistema de experimentos que proporciona el ajuste teórico c·n³. */
+    private final IExperimentos experimentos;
+
+    /**
+     * Crea la gráfica.
+     *
+     * @param experimentos sistema de experimentos usado para el ajuste c·n³
+     */
+    public Grafica(IExperimentos experimentos) {
+        this.experimentos = experimentos;
     }
 
     /**
@@ -63,7 +74,8 @@ public final class Grafica {
      * @param resultados resultados de los experimentos (ordenados por n)
      * @return imagen con la gráfica
      */
-    public static BufferedImage generarGrafica(List<ResultadoExperimento> resultados) {
+    @Override
+    public BufferedImage generarGrafica(List<IResultadoExperimento> resultados) {
         BufferedImage imagen = new BufferedImage(ANCHO, ALTO, BufferedImage.TYPE_INT_RGB);
         Graphics2D g = imagen.createGraphics();
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -75,10 +87,10 @@ public final class Grafica {
         g.fillRect(0, 0, ANCHO, ALTO);
 
         // Rango de los ejes: de 0 al máximo redondeado a un valor "bonito".
-        int nMax = resultados.get(resultados.size() - 1).n();
+        int nMax = resultados.get(resultados.size() - 1).getDimension();
         double tMax = 0;
-        for (ResultadoExperimento r : resultados) {
-            tMax = Math.max(tMax, Math.max(r.minIterativo(), r.minRecursivo()) / 1e6);
+        for (IResultadoExperimento r : resultados) {
+            tMax = Math.max(tMax, Math.max(r.getMinIterativo(), r.getMinRecursivo()) / 1e6);
         }
         double pasoX = pasoRedondo(nMax / 10.0);
         double maxX = Math.ceil(nMax / pasoX) * pasoX;
@@ -91,8 +103,8 @@ public final class Grafica {
         dibujarEjes(g, area, pasoX, pasoY);
 
         // Curvas de ajuste teórico c·n³ (discontinuas), debajo de las medidas.
-        double cIter = Experimentos.constanteAjusteCubico(resultados, true);
-        double cRec = Experimentos.constanteAjusteCubico(resultados, false);
+        double cIter = experimentos.constanteAjusteCubico(resultados, true);
+        double cRec = experimentos.constanteAjusteCubico(resultados, false);
         dibujarAjusteCubico(g, area, cIter, COLOR_ITERATIVO);
         dibujarAjusteCubico(g, area, cRec, COLOR_RECURSIVO);
 
@@ -117,11 +129,12 @@ public final class Grafica {
      * Guarda la imagen de la gráfica como fichero PNG, creando la carpeta de
      * destino si no existe.
      *
-     * @param imagen  imagen generada con {@link #generarGrafica(List)}
+     * @param imagen  imagen generada con generarGrafica
      * @param fichero ruta del PNG de salida (por ejemplo resultados/grafica_comparativa.png)
      * @throws IOException si no se puede escribir el fichero
      */
-    public static void guardarImagen(BufferedImage imagen, Path fichero) throws IOException {
+    @Override
+    public void guardarImagen(BufferedImage imagen, Path fichero) throws IOException {
         if (fichero.getParent() != null) {
             Files.createDirectories(fichero.getParent());
         }
@@ -133,10 +146,11 @@ public final class Grafica {
      * permite (por ejemplo, al ejecutar desde NetBeans). En un entorno sin
      * pantalla no hace nada.
      *
-     * @param imagen imagen generada con {@link #generarGrafica(List)}
+     * @param imagen imagen generada con generarGrafica
      * @return true si se ha abierto la ventana
      */
-    public static boolean mostrarEnVentana(BufferedImage imagen) {
+    @Override
+    public boolean mostrarEnVentana(BufferedImage imagen) {
         if (GraphicsEnvironment.isHeadless()) {
             return false;
         }
@@ -155,15 +169,51 @@ public final class Grafica {
         return true;
     }
 
-    // =========================================================================
-    //  DIBUJO
-    // =========================================================================
-
     /**
      * Zona rectangular de la gráfica y conversión de coordenadas de datos
      * (n, ms) a píxeles.
      */
-    private record Area(int x, int y, int ancho, int alto, double maxX, double maxY) {
+    private static final class Area {
+
+        private final int x;
+        private final int y;
+        private final int ancho;
+        private final int alto;
+        private final double maxX;
+        private final double maxY;
+
+        Area(int x, int y, int ancho, int alto, double maxX, double maxY) {
+            this.x = x;
+            this.y = y;
+            this.ancho = ancho;
+            this.alto = alto;
+            this.maxX = maxX;
+            this.maxY = maxY;
+        }
+
+        int getX() {
+            return x;
+        }
+
+        int getY() {
+            return y;
+        }
+
+        int getAncho() {
+            return ancho;
+        }
+
+        int getAlto() {
+            return alto;
+        }
+
+        double getMaxX() {
+            return maxX;
+        }
+
+        double getMaxY() {
+            return maxY;
+        }
 
         double px(double valorX) {
             return x + valorX / maxX * ancho;
@@ -180,58 +230,58 @@ public final class Grafica {
         FontMetrics fm = g.getFontMetrics();
 
         // Líneas horizontales de la rejilla y etiquetas del eje Y.
-        for (double v = 0; v <= a.maxY() + 1e-9; v += pasoY) {
+        for (double v = 0; v <= a.getMaxY() + 1e-9; v += pasoY) {
             int yPix = (int) Math.round(a.py(v));
             g.setColor(COLOR_REJILLA);
-            g.drawLine(a.x(), yPix, a.x() + a.ancho(), yPix);
+            g.drawLine(a.getX(), yPix, a.getX() + a.getAncho(), yPix);
             g.setColor(COLOR_TEXTO);
             String etiqueta = formatear(v, pasoY);
-            g.drawString(etiqueta, a.x() - 12 - fm.stringWidth(etiqueta), yPix + fm.getAscent() / 2 - 2);
+            g.drawString(etiqueta, a.getX() - 12 - fm.stringWidth(etiqueta), yPix + fm.getAscent() / 2 - 2);
         }
         // Líneas verticales de la rejilla y etiquetas del eje X.
-        for (double v = 0; v <= a.maxX() + 1e-9; v += pasoX) {
+        for (double v = 0; v <= a.getMaxX() + 1e-9; v += pasoX) {
             int xPix = (int) Math.round(a.px(v));
             g.setColor(COLOR_REJILLA);
-            g.drawLine(xPix, a.y(), xPix, a.y() + a.alto());
+            g.drawLine(xPix, a.getY(), xPix, a.getY() + a.getAlto());
             g.setColor(COLOR_TEXTO);
-            centrar(g, formatear(v, pasoX), xPix, a.y() + a.alto() + 32);
+            centrar(g, formatear(v, pasoX), xPix, a.getY() + a.getAlto() + 32);
         }
 
         // Ejes.
         g.setColor(COLOR_TEXTO);
         g.setStroke(new BasicStroke(2f));
-        g.drawLine(a.x(), a.y() + a.alto(), a.x() + a.ancho(), a.y() + a.alto());
-        g.drawLine(a.x(), a.y(), a.x(), a.y() + a.alto());
+        g.drawLine(a.getX(), a.getY() + a.getAlto(), a.getX() + a.getAncho(), a.getY() + a.getAlto());
+        g.drawLine(a.getX(), a.getY(), a.getX(), a.getY() + a.getAlto());
 
         // Títulos de los ejes (el del eje Y, girado 90 grados).
         g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 24));
-        centrar(g, "Dimensión n de las matrices (n × n)", a.x() + a.ancho() / 2, a.y() + a.alto() + 80);
+        centrar(g, "Dimensión n de las matrices (n × n)", a.getX() + a.getAncho() / 2, a.getY() + a.getAlto() + 80);
         AffineTransform original = g.getTransform();
         g.rotate(-Math.PI / 2);
-        centrar(g, "Tiempo mínimo (ms)", -(a.y() + a.alto() / 2), a.x() - 90);
+        centrar(g, "Tiempo mínimo (ms)", -(a.getY() + a.getAlto() / 2), a.getX() - 90);
         g.setTransform(original);
     }
 
     /** Dibuja la serie medida de un algoritmo: polilínea más un círculo por instancia. */
-    private static void dibujarSerie(Graphics2D g, Area a, List<ResultadoExperimento> resultados,
+    private static void dibujarSerie(Graphics2D g, Area a, List<IResultadoExperimento> resultados,
             boolean iterativo, Color color) {
         Path2D linea = new Path2D.Double();
         for (int i = 0; i < resultados.size(); i++) {
-            ResultadoExperimento r = resultados.get(i);
-            double ms = (iterativo ? r.minIterativo() : r.minRecursivo()) / 1e6;
+            IResultadoExperimento r = resultados.get(i);
+            double ms = (iterativo ? r.getMinIterativo() : r.getMinRecursivo()) / 1e6;
             if (i == 0) {
-                linea.moveTo(a.px(r.n()), a.py(ms));
+                linea.moveTo(a.px(r.getDimension()), a.py(ms));
             } else {
-                linea.lineTo(a.px(r.n()), a.py(ms));
+                linea.lineTo(a.px(r.getDimension()), a.py(ms));
             }
         }
         g.setColor(color);
         g.setStroke(new BasicStroke(4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         g.draw(linea);
 
-        for (ResultadoExperimento r : resultados) {
-            double ms = (iterativo ? r.minIterativo() : r.minRecursivo()) / 1e6;
-            Ellipse2D punto = new Ellipse2D.Double(a.px(r.n()) - 8, a.py(ms) - 8, 16, 16);
+        for (IResultadoExperimento r : resultados) {
+            double ms = (iterativo ? r.getMinIterativo() : r.getMinRecursivo()) / 1e6;
+            Ellipse2D punto = new Ellipse2D.Double(a.px(r.getDimension()) - 8, a.py(ms) - 8, 16, 16);
             g.setColor(Color.WHITE);
             g.fill(punto);
             g.setColor(color);
@@ -245,9 +295,9 @@ public final class Grafica {
         Path2D curva = new Path2D.Double();
         int pasos = 200;
         for (int i = 0; i <= pasos; i++) {
-            double n = a.maxX() * i / pasos;
+            double n = a.getMaxX() * i / pasos;
             double ms = cNs * n * n * n / 1e6;
-            if (ms > a.maxY()) {
+            if (ms > a.getMaxY()) {
                 break; // no se dibuja por encima del área de la gráfica
             }
             if (i == 0) {
@@ -280,8 +330,8 @@ public final class Grafica {
         for (String t : textos) {
             anchoTexto = Math.max(anchoTexto, fm.stringWidth(t));
         }
-        int x = a.x() + 30;
-        int y = a.y() + 25;
+        int x = a.getX() + 30;
+        int y = a.getY() + 25;
         int altoLinea = 38;
         int anchoCaja = 90 + anchoTexto + 20;
         int altoCaja = altoLinea * textos.length + 20;
@@ -313,10 +363,6 @@ public final class Grafica {
             g.drawString(textos[i], x + 90, yLinea + fm.getAscent() / 2 - 3);
         }
     }
-
-    // =========================================================================
-    //  AUXILIARES
-    // =========================================================================
 
     /** Escribe un texto centrado horizontalmente en x, con la línea base en y. */
     private static void centrar(Graphics2D g, String texto, int x, int y) {

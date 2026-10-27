@@ -1,5 +1,7 @@
 package epd04;
 
+import epd04.interfaces.IMultiplicacionMatrices;
+
 /**
  * Hechizos de combinación de energía: multiplicación de matrices mediante un
  * algoritmo iterativo y mediante un algoritmo recursivo (divide y vencerás).
@@ -12,20 +14,8 @@ package epd04;
  * Ambos algoritmos calculan exactamente los mismos m·n·p productos escalares;
  * solo cambia la forma de organizar el trabajo.
  *
- * Todos los métodos son estáticos.
- *
- * @author Sergio
  */
-public final class MultiplicacionMatrices {
-
-    /** Constructor privado: clase de utilidad que no se instancia. */
-    private MultiplicacionMatrices() {
-    }
-
-    // =========================================================================
-    //  VALIDACIÓN DE DIMENSIONES
-    // =========================================================================
-
+public final class MultiplicacionMatrices implements IMultiplicacionMatrices {
     /**
      * Comprueba si dos matrices se pueden multiplicar: el número de columnas
      * de A debe coincidir con el número de filas de B. Además, ambas deben
@@ -35,7 +25,8 @@ public final class MultiplicacionMatrices {
      * @param b segunda matriz
      * @return true si el producto A · B está definido
      */
-    public static boolean sonCompatibles(int[][] a, int[][] b) {
+    @Override
+    public boolean sonCompatibles(int[][] a, int[][] b) {
         return esRectangular(a) && esRectangular(b) && a[0].length == b.length;
     }
 
@@ -59,7 +50,7 @@ public final class MultiplicacionMatrices {
     /**
      * Lanza una excepción descriptiva si A y B no se pueden multiplicar.
      */
-    private static void validarCompatibles(int[][] a, int[][] b) {
+    private void validarCompatibles(int[][] a, int[][] b) {
         if (!sonCompatibles(a, b)) {
             throw new IllegalArgumentException(
                     "Matrices incompatibles para el producto: "
@@ -76,10 +67,6 @@ public final class MultiplicacionMatrices {
         int columnas = (matriz.length > 0 && matriz[0] != null) ? matriz[0].length : 0;
         return matriz.length + "x" + columnas;
     }
-
-    // =========================================================================
-    //  ALGORITMO ITERATIVO
-    // =========================================================================
 
     /**
      * Multiplica A (m x n) por B (n x p) con el algoritmo iterativo clásico de
@@ -99,7 +86,8 @@ public final class MultiplicacionMatrices {
      * @return matriz producto C (m x p)
      * @throws IllegalArgumentException si las dimensiones no son compatibles
      */
-    public static int[][] multiplicarIterativo(int[][] a, int[][] b) {
+    @Override
+    public int[][] multiplicarIterativo(int[][] a, int[][] b) {
         validarCompatibles(a, b);
 
         int m = a.length;      // filas de A = filas de C
@@ -121,34 +109,15 @@ public final class MultiplicacionMatrices {
         }
         return c;
     }
-
-    // =========================================================================
-    //  ALGORITMO RECURSIVO (DIVIDE Y VENCERÁS)
-    // =========================================================================
-
+    
     /**
      * Multiplica A (m x n) por B (n x p) con un algoritmo recursivo de divide
      * y vencerás.
      *
      * Idea: el producto es un problema de tres dimensiones (m, n, p). En cada
      * llamada se parte por la mitad la dimensión más grande y se resuelven
-     * recursivamente los dos subproblemas resultantes:
-     *
-     *  1) Si m es la mayor, se divide A (y C) en dos bloques de filas:
-     *        | C1 |   | A1 |           C1 = A1 · B
-     *        | C2 | = | A2 | · B   =>  C2 = A2 · B
-     *
-     *  2) Si p es la mayor, se divide B (y C) en dos bloques de columnas:
-     *        | C1  C2 | = A · | B1  B2 |   =>   C1 = A · B1,  C2 = A · B2
-     *
-     *  3) Si n es la mayor, se divide la dimensión común:
-     *        C = | A1  A2 | · | B1 |  =  A1 · B1  +  A2 · B2
-     *                         | B2 |
-     *     Las dos mitades se acumulan sobre el mismo bloque de C.
-     *
-     * Caso base: cuando m = n = p = 1 el subproblema es un único producto
-     * escalar, C[i][j] += A[i][k] * B[k][j].
-     *
+     * recursivamente los dos subproblemas resultantes.
+
      * Los bloques no se copian: cada subproblema se identifica mediante
      * desplazamientos (filaA, comun, colB) y tamaños (m, n, p) sobre las
      * matrices originales, así que "combinar" las soluciones no cuesta nada:
@@ -167,7 +136,8 @@ public final class MultiplicacionMatrices {
      * @return matriz producto C (m x p)
      * @throws IllegalArgumentException si las dimensiones no son compatibles
      */
-    public static int[][] multiplicarRecursivo(int[][] a, int[][] b) {
+    @Override
+    public int[][] multiplicarRecursivo(int[][] a, int[][] b) {
         validarCompatibles(a, b);
 
         int m = a.length;
@@ -189,15 +159,15 @@ public final class MultiplicacionMatrices {
      * (comun, colB) con tamaño n x p. El bloque de C afectado empieza en
      * (filaA, colB) y tiene tamaño m x p.
      *
-     * @param a     matriz izquierda completa
-     * @param b     matriz derecha completa
-     * @param c     matriz resultado completa (se acumula sobre ella)
+     * @param a matriz izquierda completa
+     * @param b matriz derecha completa
+     * @param c matriz resultado completa (se acumula sobre ella)
      * @param filaA primera fila del bloque de A (y de C)
      * @param comun primera columna del bloque de A = primera fila del bloque de B
      * @param colB  primera columna del bloque de B (y de C)
-     * @param m     número de filas del bloque de A
-     * @param n     tamaño de la dimensión común del bloque
-     * @param p     número de columnas del bloque de B
+     * @param m número de filas del bloque de A
+     * @param n tamaño de la dimensión común del bloque
+     * @param p número de columnas del bloque de B
      */
     private static void multiplicarRecursivo(int[][] a, int[][] b, int[][] c,
             int filaA, int comun, int colB,
@@ -233,16 +203,13 @@ public final class MultiplicacionMatrices {
         }
     }
 
-    // =========================================================================
-    //  UTILIDADES
-    // =========================================================================
-
     /**
      * Compara dos matrices elemento a elemento.
      *
      * @return true si tienen las mismas dimensiones y los mismos valores
      */
-    public static boolean sonIguales(int[][] x, int[][] y) {
+    @Override
+    public boolean sonIguales(int[][] x, int[][] y) {
         if (x.length != y.length) {
             return false;
         }
@@ -257,13 +224,14 @@ public final class MultiplicacionMatrices {
     /**
      * Cuenta las llamadas que realiza el algoritmo recursivo para un producto
      * A (m x n) · B (n x p). Reproduce exactamente la misma estrategia de
-     * división que {@link #multiplicarRecursivo(int[][], int[][])}, pero sin
+     * división que multiplicarRecursivo, pero sin
      * operar con matrices, de modo que sirve para comprobar empíricamente la
      * fórmula teórica 2·m·n·p − 1.
      *
      * @return número total de llamadas (la inicial incluida)
      */
-    public static long contarLlamadasRecursivas(int m, int n, int p) {
+    @Override
+    public long contarLlamadasRecursivas(int m, int n, int p) {
         if (m == 1 && n == 1 && p == 1) {
             return 1; // una hoja: un producto escalar
         }

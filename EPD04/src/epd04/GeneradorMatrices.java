@@ -1,17 +1,17 @@
 package epd04;
 
+import epd04.interfaces.IGeneradorMatrices;
+
 import java.util.Random;
 
 /**
  * Generador de "matrices mágicas": matrices de enteros aleatorios que
  * representan la energía mágica almacenada en un grimorio.
  *
- * Todos los métodos son estáticos: la clase no guarda más estado que el
- * generador de números aleatorios compartido.
+ * Cada instancia guarda como único estado su generador de números aleatorios.
  *
- * @author Sergio
  */
-public final class GeneradorMatrices {
+public final class GeneradorMatrices implements IGeneradorMatrices {
 
     /** Valor mínimo (incluido) de la energía de cada celda por defecto. */
     public static final int ENERGIA_MINIMA = 1;
@@ -20,15 +20,9 @@ public final class GeneradorMatrices {
     public static final int ENERGIA_MAXIMA = 9;
 
     /**
-     * Generador de números pseudoaleatorios compartido por todos los métodos.
-     * Se puede fijar su semilla con {@link #establecerSemilla(long)} para que
-     * los experimentos sean reproducibles.
+     * Generador de números pseudoaleatorios de esta instancia.
      */
-    private static Random azar = new Random();
-
-    /** Constructor privado: clase de utilidad que no se instancia. */
-    private GeneradorMatrices() {
-    }
+    private Random azar = new Random();
 
     /**
      * Fija la semilla del generador aleatorio. Con la misma semilla se
@@ -37,7 +31,8 @@ public final class GeneradorMatrices {
      *
      * @param semilla semilla del generador
      */
-    public static void establecerSemilla(long semilla) {
+    @Override
+    public void establecerSemilla(long semilla) {
         azar = new Random(semilla);
     }
 
@@ -45,12 +40,13 @@ public final class GeneradorMatrices {
      * Genera una matriz de dimensiones filas x columnas con valores enteros
      * aleatorios en el intervalo [ENERGIA_MINIMA, ENERGIA_MAXIMA].
      *
-     * @param filas    número de filas (mayor que 0)
+     * @param filas número de filas (mayor que 0)
      * @param columnas número de columnas (mayor que 0)
      * @return matriz nueva con valores aleatorios
      * @throws IllegalArgumentException si alguna dimensión no es positiva
      */
-    public static int[][] generarMatrizAleatoria(int filas, int columnas) {
+    @Override
+    public int[][] generarMatrizAleatoria(int filas, int columnas) {
         return generarMatrizAleatoria(filas, columnas, ENERGIA_MINIMA, ENERGIA_MAXIMA);
     }
 
@@ -58,15 +54,16 @@ public final class GeneradorMatrices {
      * Genera una matriz de dimensiones filas x columnas con valores enteros
      * aleatorios en el intervalo [minimo, maximo].
      *
-     * @param filas    número de filas (mayor que 0)
+     * @param filas número de filas (mayor que 0)
      * @param columnas número de columnas (mayor que 0)
-     * @param minimo   valor mínimo posible (incluido)
-     * @param maximo   valor máximo posible (incluido)
+     * @param minimo valor mínimo posible (incluido)
+     * @param maximo valor máximo posible (incluido)
      * @return matriz nueva con valores aleatorios
      * @throws IllegalArgumentException si alguna dimensión no es positiva o
-     *                                  si minimo es mayor que maximo
+     * si minimo es mayor que maximo
      */
-    public static int[][] generarMatrizAleatoria(int filas, int columnas, int minimo, int maximo) {
+    @Override
+    public int[][] generarMatrizAleatoria(int filas, int columnas, int minimo, int maximo) {
         // Validación de parámetros: una matriz necesita al menos una fila y una columna.
         if (filas <= 0 || columnas <= 0) {
             throw new IllegalArgumentException(
