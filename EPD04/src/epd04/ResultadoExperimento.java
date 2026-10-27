@@ -45,9 +45,13 @@ public final class ResultadoExperimento implements IResultadoExperimento {
      * @param mediaRecursivo    tiempo medio del algoritmo recursivo (ns)
      * @param resultadosIguales true si ambos algoritmos devolvieron la misma matriz
      */
-    public ResultadoExperimento(int dimension, int repeticiones,
-            long minIterativo, double mediaIterativo,
-            long minRecursivo, double mediaRecursivo,
+    public ResultadoExperimento(
+            int dimension, 
+            int repeticiones,
+            long minIterativo, 
+            double mediaIterativo,
+            long minRecursivo, 
+            double mediaRecursivo,
             boolean resultadosIguales) {
         this.dimension = dimension;
         this.repeticiones = repeticiones;

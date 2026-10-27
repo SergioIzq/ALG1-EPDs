@@ -75,9 +75,7 @@ public final class Experimentos implements IExperimentos {
         this.multiplicacion = multiplicacion;
     }
 
-    // =========================================================================
-    //  CALENTAMIENTO DE LA JVM
-    // =========================================================================
+    // CALENTAMIENTO DE LA JVM
 
     /**
      * Ejecuta ambos algoritmos repetidamente sobre matrices pequeñas para que
@@ -95,9 +93,7 @@ public final class Experimentos implements IExperimentos {
         }
     }
 
-    // =========================================================================
-    //  EJECUCIÓN DE EXPERIMENTOS
-    // =========================================================================
+    // EJECUCIÓN DE EXPERIMENTOS
 
     /**
      * Ejecuta todos los experimentos, uno por cada dimensión, y muestra el
@@ -214,9 +210,7 @@ public final class Experimentos implements IExperimentos {
         return suma / valores.length;
     }
 
-    // =========================================================================
-    //  PRESENTACIÓN DE RESULTADOS POR CONSOLA
-    // =========================================================================
+    // PRESENTACIÓN DE RESULTADOS POR CONSOLA
 
     /**
      * Muestra por consola la tabla de tiempos ordenada por dimensión.
@@ -324,9 +318,7 @@ public final class Experimentos implements IExperimentos {
         return numerador / denominador;
     }
 
-    // =========================================================================
-    //  EXPORTACIÓN DE RESULTADOS
-    // =========================================================================
+    // EXPORTACIÓN DE RESULTADOS
 
     /**
      * Guarda los resultados en un fichero CSV (separador ";", apto para Excel

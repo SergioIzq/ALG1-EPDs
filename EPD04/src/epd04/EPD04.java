@@ -121,9 +121,7 @@ public class EPD04 {
         }
     }
 
-    // =========================================================================
-    //  FASE 1: VALIDACIONES
-    // =========================================================================
+    // FASE 1: VALIDACIONES
 
     /**
      * Multiplica un ejemplo pequeño cuyo resultado se conoce de antemano:
@@ -210,9 +208,7 @@ public class EPD04 {
         }
     }
 
-    // =========================================================================
-    //  SALIDA POR CONSOLA
-    // =========================================================================
+    // SALIDA POR CONSOLA
 
     /**
      * Configura la salida estándar y la de errores para que escriban en
