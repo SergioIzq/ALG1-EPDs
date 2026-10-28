@@ -1,9 +1,5 @@
 package epd04;
 
-import epd04.interfaces.IExperimentos;
-import epd04.interfaces.IGrafica;
-import epd04.interfaces.IResultadoExperimento;
-
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Font;
@@ -42,7 +38,7 @@ import javax.swing.WindowConstants;
  *  - En trazo discontinuo, el ajuste teórico c·n³ de cada algoritmo.
  *
  */
-public final class Grafica implements IGrafica {
+public final class Grafica {
 
     private static final int ANCHO = 1600;
     private static final int ALTO = 1000;
@@ -56,16 +52,14 @@ public final class Grafica implements IGrafica {
     private static final Color COLOR_REJILLA = new Color(0xE3, 0xE3, 0xE3);
     private static final Color COLOR_TEXTO = new Color(0x22, 0x22, 0x22);
 
-    /** Sistema de experimentos que proporciona el ajuste teórico c·n³. */
-    private final IExperimentos experimentos;
+    /** Zona rectangular de la gráfica donde se dibujan los datos (en píxeles). */
+    private static final int AREA_X = MARGEN_IZQ;
+    private static final int AREA_Y = MARGEN_SUP;
+    private static final int AREA_ANCHO = ANCHO - MARGEN_IZQ - MARGEN_DER;
+    private static final int AREA_ALTO = ALTO - MARGEN_SUP - MARGEN_INF;
 
-    /**
-     * Crea la gráfica.
-     *
-     * @param experimentos sistema de experimentos usado para el ajuste c·n³
-     */
-    public Grafica(IExperimentos experimentos) {
-        this.experimentos = experimentos;
+    /** Clase de utilidad con métodos estáticos: no se instancia. */
+    private Grafica() {
     }
 
     /**
@@ -74,8 +68,7 @@ public final class Grafica implements IGrafica {
      * @param resultados resultados de los experimentos (ordenados por n)
      * @return imagen con la gráfica
      */
-    @Override
-    public BufferedImage generarGrafica(List<IResultadoExperimento> resultados) {
+    public static BufferedImage generarGrafica(List<ResultadoExperimento> resultados) {
         BufferedImage imagen = new BufferedImage(ANCHO, ALTO, BufferedImage.TYPE_INT_RGB);
         Graphics2D g = imagen.createGraphics();
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -87,30 +80,27 @@ public final class Grafica implements IGrafica {
         g.fillRect(0, 0, ANCHO, ALTO);
 
         // Rango de los ejes: de 0 al máximo redondeado a un valor "bonito".
-        int nMax = resultados.get(resultados.size() - 1).getDimension();
+        int nMax = resultados.get(resultados.size() - 1).dimension;
         double tMax = 0;
-        for (IResultadoExperimento r : resultados) {
-            tMax = Math.max(tMax, Math.max(r.getMinIterativo(), r.getMinRecursivo()) / 1e6);
+        for (ResultadoExperimento r : resultados) {
+            tMax = Math.max(tMax, Math.max(r.minIterativo, r.minRecursivo) / 1e6);
         }
         double pasoX = pasoRedondo(nMax / 10.0);
         double maxX = Math.ceil(nMax / pasoX) * pasoX;
         double pasoY = pasoRedondo(tMax / 8.0);
         double maxY = Math.ceil(tMax * 1.05 / pasoY) * pasoY;
 
-        Area area = new Area(MARGEN_IZQ, MARGEN_SUP, ANCHO - MARGEN_IZQ - MARGEN_DER,
-                ALTO - MARGEN_SUP - MARGEN_INF, maxX, maxY);
-
-        dibujarEjes(g, area, pasoX, pasoY);
+        dibujarEjes(g, maxX, maxY, pasoX, pasoY);
 
         // Curvas de ajuste teórico c·n³ (discontinuas), debajo de las medidas.
-        double cIter = experimentos.constanteAjusteCubico(resultados, true);
-        double cRec = experimentos.constanteAjusteCubico(resultados, false);
-        dibujarAjusteCubico(g, area, cIter, COLOR_ITERATIVO);
-        dibujarAjusteCubico(g, area, cRec, COLOR_RECURSIVO);
+        double cIter = Experimentos.constanteAjusteCubico(resultados, true);
+        double cRec = Experimentos.constanteAjusteCubico(resultados, false);
+        dibujarAjusteCubico(g, maxX, maxY, cIter, COLOR_ITERATIVO);
+        dibujarAjusteCubico(g, maxX, maxY, cRec, COLOR_RECURSIVO);
 
         // Curvas medidas con marcadores en cada instancia.
-        dibujarSerie(g, area, resultados, true, COLOR_ITERATIVO);
-        dibujarSerie(g, area, resultados, false, COLOR_RECURSIVO);
+        dibujarSerie(g, maxX, maxY, resultados, true, COLOR_ITERATIVO);
+        dibujarSerie(g, maxX, maxY, resultados, false, COLOR_RECURSIVO);
 
         // Títulos y leyenda.
         g.setColor(COLOR_TEXTO);
@@ -119,7 +109,7 @@ public final class Grafica implements IGrafica {
         g.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 22));
         centrar(g, "Tiempo mínimo de ejecución frente a la dimensión n (matrices n × n)", ANCHO / 2, 88);
 
-        dibujarLeyenda(g, area, cIter, cRec);
+        dibujarLeyenda(g, cIter, cRec);
 
         g.dispose();
         return imagen;
@@ -133,8 +123,7 @@ public final class Grafica implements IGrafica {
      * @param fichero ruta del PNG de salida (por ejemplo resultados/grafica_comparativa.png)
      * @throws IOException si no se puede escribir el fichero
      */
-    @Override
-    public void guardarImagen(BufferedImage imagen, Path fichero) throws IOException {
+    public static void guardarImagen(BufferedImage imagen, Path fichero) throws IOException {
         if (fichero.getParent() != null) {
             Files.createDirectories(fichero.getParent());
         }
@@ -149,8 +138,7 @@ public final class Grafica implements IGrafica {
      * @param imagen imagen generada con generarGrafica
      * @return true si se ha abierto la ventana
      */
-    @Override
-    public boolean mostrarEnVentana(BufferedImage imagen) {
+    public static boolean mostrarEnVentana(BufferedImage imagen) {
         if (GraphicsEnvironment.isHeadless()) {
             return false;
         }
@@ -170,118 +158,81 @@ public final class Grafica implements IGrafica {
     }
 
     /**
-     * Zona rectangular de la gráfica y conversión de coordenadas de datos
-     * (n, ms) a píxeles.
+     * Convierte una coordenada X de datos (dimensión n) a píxeles.
+     *
+     * @param maxX valor máximo del eje X
      */
-    private static final class Area {
+    private static double px(double valorX, double maxX) {
+        return AREA_X + valorX / maxX * AREA_ANCHO;
+    }
 
-        private final int x;
-        private final int y;
-        private final int ancho;
-        private final int alto;
-        private final double maxX;
-        private final double maxY;
-
-        Area(int x, int y, int ancho, int alto, double maxX, double maxY) {
-            this.x = x;
-            this.y = y;
-            this.ancho = ancho;
-            this.alto = alto;
-            this.maxX = maxX;
-            this.maxY = maxY;
-        }
-
-        int getX() {
-            return x;
-        }
-
-        int getY() {
-            return y;
-        }
-
-        int getAncho() {
-            return ancho;
-        }
-
-        int getAlto() {
-            return alto;
-        }
-
-        double getMaxX() {
-            return maxX;
-        }
-
-        double getMaxY() {
-            return maxY;
-        }
-
-        double px(double valorX) {
-            return x + valorX / maxX * ancho;
-        }
-
-        double py(double valorY) {
-            return y + alto - valorY / maxY * alto;
-        }
+    /**
+     * Convierte una coordenada Y de datos (tiempo en ms) a píxeles.
+     *
+     * @param maxY valor máximo del eje Y
+     */
+    private static double py(double valorY, double maxY) {
+        return AREA_Y + AREA_ALTO - valorY / maxY * AREA_ALTO;
     }
 
     /** Dibuja la rejilla, los ejes, las marcas y sus etiquetas. */
-    private static void dibujarEjes(Graphics2D g, Area a, double pasoX, double pasoY) {
+    private static void dibujarEjes(Graphics2D g, double maxX, double maxY, double pasoX, double pasoY) {
         g.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 20));
         FontMetrics fm = g.getFontMetrics();
 
         // Líneas horizontales de la rejilla y etiquetas del eje Y.
-        for (double v = 0; v <= a.getMaxY() + 1e-9; v += pasoY) {
-            int yPix = (int) Math.round(a.py(v));
+        for (double v = 0; v <= maxY + 1e-9; v += pasoY) {
+            int yPix = (int) Math.round(py(v, maxY));
             g.setColor(COLOR_REJILLA);
-            g.drawLine(a.getX(), yPix, a.getX() + a.getAncho(), yPix);
+            g.drawLine(AREA_X, yPix, AREA_X + AREA_ANCHO, yPix);
             g.setColor(COLOR_TEXTO);
             String etiqueta = formatear(v, pasoY);
-            g.drawString(etiqueta, a.getX() - 12 - fm.stringWidth(etiqueta), yPix + fm.getAscent() / 2 - 2);
+            g.drawString(etiqueta, AREA_X - 12 - fm.stringWidth(etiqueta), yPix + fm.getAscent() / 2 - 2);
         }
         // Líneas verticales de la rejilla y etiquetas del eje X.
-        for (double v = 0; v <= a.getMaxX() + 1e-9; v += pasoX) {
-            int xPix = (int) Math.round(a.px(v));
+        for (double v = 0; v <= maxX + 1e-9; v += pasoX) {
+            int xPix = (int) Math.round(px(v, maxX));
             g.setColor(COLOR_REJILLA);
-            g.drawLine(xPix, a.getY(), xPix, a.getY() + a.getAlto());
+            g.drawLine(xPix, AREA_Y, xPix, AREA_Y + AREA_ALTO);
             g.setColor(COLOR_TEXTO);
-            centrar(g, formatear(v, pasoX), xPix, a.getY() + a.getAlto() + 32);
+            centrar(g, formatear(v, pasoX), xPix, AREA_Y + AREA_ALTO + 32);
         }
 
         // Ejes.
         g.setColor(COLOR_TEXTO);
         g.setStroke(new BasicStroke(2f));
-        g.drawLine(a.getX(), a.getY() + a.getAlto(), a.getX() + a.getAncho(), a.getY() + a.getAlto());
-        g.drawLine(a.getX(), a.getY(), a.getX(), a.getY() + a.getAlto());
+        g.drawLine(AREA_X, AREA_Y + AREA_ALTO, AREA_X + AREA_ANCHO, AREA_Y + AREA_ALTO);
+        g.drawLine(AREA_X, AREA_Y, AREA_X, AREA_Y + AREA_ALTO);
 
         // Títulos de los ejes (el del eje Y, girado 90 grados).
         g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 24));
-        centrar(g, "Dimensión n de las matrices (n × n)", a.getX() + a.getAncho() / 2, a.getY() + a.getAlto() + 80);
+        centrar(g, "Dimensión n de las matrices (n × n)", AREA_X + AREA_ANCHO / 2, AREA_Y + AREA_ALTO + 80);
         AffineTransform original = g.getTransform();
         g.rotate(-Math.PI / 2);
-        centrar(g, "Tiempo mínimo (ms)", -(a.getY() + a.getAlto() / 2), a.getX() - 90);
+        centrar(g, "Tiempo mínimo (ms)", -(AREA_Y + AREA_ALTO / 2), AREA_X - 90);
         g.setTransform(original);
     }
 
     /** Dibuja la serie medida de un algoritmo: polilínea más un círculo por instancia. */
-    private static void dibujarSerie(Graphics2D g, Area a, List<IResultadoExperimento> resultados,
+    private static void dibujarSerie(Graphics2D g, double maxX, double maxY, List<ResultadoExperimento> resultados,
             boolean iterativo, Color color) {
         Path2D linea = new Path2D.Double();
         for (int i = 0; i < resultados.size(); i++) {
-            IResultadoExperimento r = resultados.get(i);
-            double ms = (iterativo ? r.getMinIterativo() : r.getMinRecursivo()) / 1e6;
+            ResultadoExperimento r = resultados.get(i);
+            double ms = (iterativo ? r.minIterativo : r.minRecursivo) / 1e6;
             if (i == 0) {
-                linea.moveTo(a.px(r.getDimension()), a.py(ms));
+                linea.moveTo(px(r.dimension, maxX), py(ms, maxY));
             } else {
-                linea.lineTo(a.px(r.getDimension()), a.py(ms));
+                linea.lineTo(px(r.dimension, maxX), py(ms, maxY));
             }
         }
         g.setColor(color);
         g.setStroke(new BasicStroke(4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         g.draw(linea);
 
-        for (IResultadoExperimento r : resultados) {
-            double ms = (iterativo ? r.getMinIterativo() : r.getMinRecursivo()) / 1e6;
-            Ellipse2D punto = new Ellipse2D.Double(a.px(r.getDimension()) - 8, a.py(ms) - 8, 16, 16);
+        for (ResultadoExperimento r : resultados) {
+            double ms = (iterativo ? r.minIterativo : r.minRecursivo) / 1e6;
+            Ellipse2D punto = new Ellipse2D.Double(px(r.dimension, maxX) - 8, py(ms, maxY) - 8, 16, 16);
             g.setColor(Color.WHITE);
             g.fill(punto);
             g.setColor(color);
@@ -291,19 +242,19 @@ public final class Grafica implements IGrafica {
     }
 
     /** Dibuja la curva teórica c·n³ en trazo discontinuo. */
-    private static void dibujarAjusteCubico(Graphics2D g, Area a, double cNs, Color color) {
+    private static void dibujarAjusteCubico(Graphics2D g, double maxX, double maxY, double cNs, Color color) {
         Path2D curva = new Path2D.Double();
         int pasos = 200;
         for (int i = 0; i <= pasos; i++) {
-            double n = a.getMaxX() * i / pasos;
+            double n = maxX * i / pasos;
             double ms = cNs * n * n * n / 1e6;
-            if (ms > a.getMaxY()) {
+            if (ms > maxY) {
                 break; // no se dibuja por encima del área de la gráfica
             }
             if (i == 0) {
-                curva.moveTo(a.px(n), a.py(ms));
+                curva.moveTo(px(n, maxX), py(ms, maxY));
             } else {
-                curva.lineTo(a.px(n), a.py(ms));
+                curva.lineTo(px(n, maxX), py(ms, maxY));
             }
         }
         Stroke discontinuo = new BasicStroke(2.5f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_ROUND,
@@ -314,7 +265,7 @@ public final class Grafica implements IGrafica {
     }
 
     /** Dibuja la leyenda en la esquina superior izquierda del área. */
-    private static void dibujarLeyenda(Graphics2D g, Area a, double cIter, double cRec) {
+    private static void dibujarLeyenda(Graphics2D g, double cIter, double cRec) {
         String[] textos = {
             "Iterativo (medido)",
             "Recursivo divide y vencerás (medido)",
@@ -330,8 +281,8 @@ public final class Grafica implements IGrafica {
         for (String t : textos) {
             anchoTexto = Math.max(anchoTexto, fm.stringWidth(t));
         }
-        int x = a.getX() + 30;
-        int y = a.getY() + 25;
+        int x = AREA_X + 30;
+        int y = AREA_Y + 25;
         int altoLinea = 38;
         int anchoCaja = 90 + anchoTexto + 20;
         int altoCaja = altoLinea * textos.length + 20;

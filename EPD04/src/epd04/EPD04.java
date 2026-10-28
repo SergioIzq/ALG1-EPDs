@@ -1,10 +1,5 @@
 package epd04;
 
-import epd04.interfaces.IExperimentos;
-import epd04.interfaces.IGeneradorMatrices;
-import epd04.interfaces.IGrafica;
-import epd04.interfaces.IMultiplicacionMatrices;
-import epd04.interfaces.IResultadoExperimento;
 import java.awt.image.BufferedImage;
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
@@ -41,6 +36,10 @@ public class EPD04 {
     /** Carpeta donde se guardan la tabla de tiempos (CSV) y la gráfica (PNG). */
     private static final Path CARPETA_RESULTADOS = Path.of("resultados");
 
+    /** Clase principal con métodos estáticos: no se instancia. */
+    private EPD04() {
+    }
+
     /**
      * Punto de entrada del programa.
      *
@@ -51,42 +50,36 @@ public class EPD04 {
         configurarConsolaUTF8();
         imprimirCabecera();
 
-        // Objetos del programa, siempre referenciados a través de su interfaz.
-        IGeneradorMatrices generador = new GeneradorMatrices();
-        IMultiplicacionMatrices multiplicacion = new MultiplicacionMatrices();
-        IExperimentos experimentos = new Experimentos(generador, multiplicacion);
-        IGrafica graficador = new Grafica(experimentos);
-
         // Semilla aleatoria distinta en cada ejecución; se muestra para que
         // cualquier experimento pueda reproducirse fijándola.
         long semilla = System.currentTimeMillis();
-        generador.establecerSemilla(semilla);
+        GeneradorMatrices.establecerSemilla(semilla);
         System.out.println("Semilla aleatoria de esta ejecución: " + semilla);
 
         titulo("FASE 1: VALIDACIÓN DE LOS HECHIZOS DE COMBINACIÓN");
-        validarEjemploManual(generador, multiplicacion);
-        validarMatricesRectangulares(generador, multiplicacion);
-        validarIncompatibles(generador, multiplicacion);
+        validarEjemploManual();
+        validarMatricesRectangulares();
+        validarIncompatibles();
 
         titulo("FASE 2: EXPERIMENTACIÓN (matrices aleatorias y medición de tiempos)");
         System.out.println("Calentando la JVM para que el compilador JIT optimice ambos métodos...");
-        experimentos.calentarJVM();
+        Experimentos.calentarJVM();
         System.out.println("Midiendo (tiempo mínimo de todas las repeticiones):");
-        List<IResultadoExperimento> resultados = experimentos.ejecutarTodos(Experimentos.DIMENSIONES);
+        List<ResultadoExperimento> resultados = Experimentos.ejecutarTodos(Experimentos.DIMENSIONES);
 
         titulo("FASE 3: TABLA DE TIEMPOS Y ANÁLISIS EMPÍRICO");
         System.out.println("Tiempos en milisegundos. Rec/Iter = cuántas veces es más lento el recursivo.");
-        experimentos.mostrarTabla(resultados);
+        Experimentos.mostrarTabla(resultados);
         System.out.println();
         System.out.println("Relación con la complejidad teórica O(n³):");
         System.out.println("  - T/n³ casi constante  =>  el tiempo crece proporcionalmente a n³.");
         System.out.println("  - Exponente empírico log(T2/T1)/log(n2/n1) próximo a 3.");
-        experimentos.mostrarAnalisisEmpirico(resultados);
+        Experimentos.mostrarAnalisisEmpirico(resultados);
         System.out.printf(Locale.ROOT, "   Ajuste por mínimos cuadrados:  T_iter(n) = %.4f·n³ ns,  T_rec(n) = %.4f·n³ ns%n",
-                experimentos.constanteAjusteCubico(resultados, true),
-                experimentos.constanteAjusteCubico(resultados, false));
+                Experimentos.constanteAjusteCubico(resultados, true),
+                Experimentos.constanteAjusteCubico(resultados, false));
 
-        boolean todoCorrecto = resultados.stream().allMatch(IResultadoExperimento::isResultadosIguales);
+        boolean todoCorrecto = resultados.stream().allMatch(r -> r.resultadosIguales);
         System.out.println();
         System.out.println(todoCorrecto
                 ? "Todos los experimentos han producido el mismo resultado con ambos algoritmos."
@@ -95,26 +88,26 @@ public class EPD04 {
                 (System.nanoTime() - inicioPrograma) / 1e9);
         // Se muestra la variable de consumo: así los resultados calculados se
         // usan y la JVM no puede descartar los cálculos que se han medido.
-        System.out.println("(variable de consumo: " + experimentos.getConsumo() + ")");
+        System.out.println("(variable de consumo: " + Experimentos.getConsumo() + ")");
 
         titulo("FASE 4: GRÁFICA COMPARATIVA Y FICHEROS DE RESULTADOS");
         Path ficheroCSV = CARPETA_RESULTADOS.resolve("tiempos.csv");
         try {
-            experimentos.guardarCSV(resultados, ficheroCSV);
+            Experimentos.guardarCSV(resultados, ficheroCSV);
             System.out.println("Tabla de tiempos guardada en: " + ficheroCSV.toAbsolutePath());
         } catch (IOException e) {
             System.out.println("No se ha podido guardar la tabla de tiempos: " + e.getMessage());
         }
 
-        BufferedImage grafica = graficador.generarGrafica(resultados);
+        BufferedImage grafica = Grafica.generarGrafica(resultados);
         Path ficheroGrafica = CARPETA_RESULTADOS.resolve("grafica_comparativa.png");
         try {
-            graficador.guardarImagen(grafica, ficheroGrafica);
+            Grafica.guardarImagen(grafica, ficheroGrafica);
             System.out.println("Gráfica guardada en:          " + ficheroGrafica.toAbsolutePath());
         } catch (IOException e) {
             System.out.println("No se ha podido guardar la gráfica: " + e.getMessage());
         }
-        if (graficador.mostrarEnVentana(grafica)) {
+        if (Grafica.mostrarEnVentana(grafica)) {
             System.out.println("La gráfica comparativa se muestra en una ventana; ciérrela para terminar el programa.");
         } else {
             System.out.println("No hay entorno gráfico disponible: la gráfica no se puede mostrar.");
@@ -130,14 +123,13 @@ public class EPD04 {
      *   | 4 5 6 | · |  9 10 | = | 139 154 |
      *               | 11 12 |
      */
-    private static void validarEjemploManual(IGeneradorMatrices generador,
-            IMultiplicacionMatrices multiplicacion) {
+    private static void validarEjemploManual() {
         int[][] a = {{1, 2, 3}, {4, 5, 6}};
         int[][] b = {{7, 8}, {9, 10}, {11, 12}};
         int[][] esperado = {{58, 64}, {139, 154}};
 
-        int[][] iterativo = multiplicacion.multiplicarIterativo(a, b);
-        int[][] recursivo = multiplicacion.multiplicarRecursivo(a, b);
+        int[][] iterativo = MultiplicacionMatrices.multiplicarIterativo(a, b);
+        int[][] recursivo = MultiplicacionMatrices.multiplicarRecursivo(a, b);
 
         System.out.println("1.1 Ejemplo resuelto a mano (2x3 · 3x2):");
         imprimirMatriz("A", a);
@@ -145,18 +137,18 @@ public class EPD04 {
         imprimirMatriz("Iterativo", iterativo);
         imprimirMatriz("Recursivo", recursivo);
         System.out.println("    Coincide con el resultado esperado: iterativo "
-                + siNo(multiplicacion.sonIguales(iterativo, esperado))
-                + ", recursivo " + siNo(multiplicacion.sonIguales(recursivo, esperado)));
+                + siNo(MultiplicacionMatrices.sonIguales(iterativo, esperado))
+                + ", recursivo " + siNo(MultiplicacionMatrices.sonIguales(recursivo, esperado)));
 
         // Ejemplo con matrices aleatorias pequeñas para ver el generador en acción.
-        int[][] x = generador.generarMatrizAleatoria(3, 4);
-        int[][] y = generador.generarMatrizAleatoria(4, 2);
+        int[][] x = GeneradorMatrices.generarMatrizAleatoria(3, 4);
+        int[][] y = GeneradorMatrices.generarMatrizAleatoria(4, 2);
         System.out.println();
         System.out.println("1.2 Matrices aleatorias generadas (3x4 · 4x2):");
         imprimirMatriz("X", x);
         imprimirMatriz("Y", y);
-        imprimirMatriz("Iterativo", multiplicacion.multiplicarIterativo(x, y));
-        imprimirMatriz("Recursivo", multiplicacion.multiplicarRecursivo(x, y));
+        imprimirMatriz("Iterativo", MultiplicacionMatrices.multiplicarIterativo(x, y));
+        imprimirMatriz("Recursivo", MultiplicacionMatrices.multiplicarRecursivo(x, y));
     }
 
     /**
@@ -164,8 +156,7 @@ public class EPD04 {
      * variadas (también rectangulares y no potencias de 2) y comprueba que el
      * número de llamadas recursivas coincide con la fórmula 2·m·n·p − 1.
      */
-    private static void validarMatricesRectangulares(IGeneradorMatrices generador,
-            IMultiplicacionMatrices multiplicacion) {
+    private static void validarMatricesRectangulares() {
         int[][] casos = {
             {1, 1, 1}, {1, 7, 1}, {5, 1, 3}, {2, 3, 4}, {7, 5, 3},
             {13, 17, 11}, {31, 64, 9}, {64, 33, 20}, {100, 50, 200}, {128, 128, 128}
@@ -175,12 +166,12 @@ public class EPD04 {
         System.out.printf("    %-20s %-13s %-15s %-15s%n", "Dimensiones", "Iter = Rec", "Llamadas rec.", "2·m·n·p - 1");
         for (int[] caso : casos) {
             int m = caso[0], n = caso[1], p = caso[2];
-            int[][] a = generador.generarMatrizAleatoria(m, n);
-            int[][] b = generador.generarMatrizAleatoria(n, p);
-            boolean iguales = multiplicacion.sonIguales(
-                    multiplicacion.multiplicarIterativo(a, b),
-                    multiplicacion.multiplicarRecursivo(a, b));
-            long llamadas = multiplicacion.contarLlamadasRecursivas(m, n, p);
+            int[][] a = GeneradorMatrices.generarMatrizAleatoria(m, n);
+            int[][] b = GeneradorMatrices.generarMatrizAleatoria(n, p);
+            boolean iguales = MultiplicacionMatrices.sonIguales(
+                    MultiplicacionMatrices.multiplicarIterativo(a, b),
+                    MultiplicacionMatrices.multiplicarRecursivo(a, b));
+            long llamadas = MultiplicacionMatrices.contarLlamadasRecursivas(m, n, p);
             long formula = 2L * m * n * p - 1;
             System.out.printf("    %-20s %-13s %-15d %-15d %s%n",
                     m + "x" + n + " · " + n + "x" + p, siNo(iguales), llamadas, formula,
@@ -189,19 +180,18 @@ public class EPD04 {
     }
 
     /** Comprueba que se detectan las dimensiones incompatibles. */
-    private static void validarIncompatibles(IGeneradorMatrices generador,
-            IMultiplicacionMatrices multiplicacion) {
+    private static void validarIncompatibles() {
         System.out.println();
         System.out.println("1.4 Dimensiones incompatibles (2x3 · 2x3):");
-        int[][] a = generador.generarMatrizAleatoria(2, 3);
+        int[][] a = GeneradorMatrices.generarMatrizAleatoria(2, 3);
         try {
-            multiplicacion.multiplicarIterativo(a, a);
+            MultiplicacionMatrices.multiplicarIterativo(a, a);
             System.out.println("    ERROR: no se ha detectado la incompatibilidad");
         } catch (IllegalArgumentException e) {
             System.out.println("    Iterativo -> excepción controlada: " + e.getMessage());
         }
         try {
-            multiplicacion.multiplicarRecursivo(a, a);
+            MultiplicacionMatrices.multiplicarRecursivo(a, a);
             System.out.println("    ERROR: no se ha detectado la incompatibilidad");
         } catch (IllegalArgumentException e) {
             System.out.println("    Recursivo -> excepción controlada: " + e.getMessage());

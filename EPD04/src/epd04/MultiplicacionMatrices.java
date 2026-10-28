@@ -1,7 +1,5 @@
 package epd04;
 
-import epd04.interfaces.IMultiplicacionMatrices;
-
 /**
  * Hechizos de combinación de energía: multiplicación de matrices mediante un
  * algoritmo iterativo y mediante un algoritmo recursivo (divide y vencerás).
@@ -15,7 +13,12 @@ import epd04.interfaces.IMultiplicacionMatrices;
  * solo cambia la forma de organizar el trabajo.
  *
  */
-public final class MultiplicacionMatrices implements IMultiplicacionMatrices {
+public final class MultiplicacionMatrices {
+
+    /** Clase de utilidad con métodos estáticos: no se instancia. */
+    private MultiplicacionMatrices() {
+    }
+
     /**
      * Comprueba si dos matrices se pueden multiplicar: el número de columnas
      * de A debe coincidir con el número de filas de B. Además, ambas deben
@@ -25,8 +28,7 @@ public final class MultiplicacionMatrices implements IMultiplicacionMatrices {
      * @param b segunda matriz
      * @return true si el producto A · B está definido
      */
-    @Override
-    public boolean sonCompatibles(int[][] a, int[][] b) {
+    public static boolean sonCompatibles(int[][] a, int[][] b) {
         return esRectangular(a) && esRectangular(b) && a[0].length == b.length;
     }
 
@@ -50,7 +52,7 @@ public final class MultiplicacionMatrices implements IMultiplicacionMatrices {
     /**
      * Lanza una excepción descriptiva si A y B no se pueden multiplicar.
      */
-    private void validarCompatibles(int[][] a, int[][] b) {
+    private static void validarCompatibles(int[][] a, int[][] b) {
         if (!sonCompatibles(a, b)) {
             throw new IllegalArgumentException(
                     "Matrices incompatibles para el producto: "
@@ -86,8 +88,7 @@ public final class MultiplicacionMatrices implements IMultiplicacionMatrices {
      * @return matriz producto C (m x p)
      * @throws IllegalArgumentException si las dimensiones no son compatibles
      */
-    @Override
-    public int[][] multiplicarIterativo(int[][] a, int[][] b) {
+    public static int[][] multiplicarIterativo(int[][] a, int[][] b) {
         validarCompatibles(a, b);
 
         int m = a.length;      // filas de A = filas de C
@@ -109,7 +110,7 @@ public final class MultiplicacionMatrices implements IMultiplicacionMatrices {
         }
         return c;
     }
-    
+
     /**
      * Multiplica A (m x n) por B (n x p) con un algoritmo recursivo de divide
      * y vencerás.
@@ -136,8 +137,7 @@ public final class MultiplicacionMatrices implements IMultiplicacionMatrices {
      * @return matriz producto C (m x p)
      * @throws IllegalArgumentException si las dimensiones no son compatibles
      */
-    @Override
-    public int[][] multiplicarRecursivo(int[][] a, int[][] b) {
+    public static int[][] multiplicarRecursivo(int[][] a, int[][] b) {
         validarCompatibles(a, b);
 
         int m = a.length;
@@ -208,8 +208,7 @@ public final class MultiplicacionMatrices implements IMultiplicacionMatrices {
      *
      * @return true si tienen las mismas dimensiones y los mismos valores
      */
-    @Override
-    public boolean sonIguales(int[][] x, int[][] y) {
+    public static boolean sonIguales(int[][] x, int[][] y) {
         if (x.length != y.length) {
             return false;
         }
@@ -230,8 +229,7 @@ public final class MultiplicacionMatrices implements IMultiplicacionMatrices {
      *
      * @return número total de llamadas (la inicial incluida)
      */
-    @Override
-    public long contarLlamadasRecursivas(int m, int n, int p) {
+    public static long contarLlamadasRecursivas(int m, int n, int p) {
         if (m == 1 && n == 1 && p == 1) {
             return 1; // una hoja: un producto escalar
         }

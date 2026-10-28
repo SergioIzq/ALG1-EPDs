@@ -1,17 +1,20 @@
 package epd04;
 
-import epd04.interfaces.IGeneradorMatrices;
-
 import java.util.Random;
 
 /**
  * Generador de "matrices mágicas": matrices de enteros aleatorios que
  * representan la energía mágica almacenada en un grimorio.
  *
- * Cada instancia guarda como único estado su generador de números aleatorios.
+ * Todos sus métodos son estáticos; el único estado es el generador de números
+ * aleatorios compartido.
  *
  */
-public final class GeneradorMatrices implements IGeneradorMatrices {
+public final class GeneradorMatrices {
+
+    /** Clase de utilidad con métodos estáticos: no se instancia. */
+    private GeneradorMatrices() {
+    }
 
     /** Valor mínimo (incluido) de la energía de cada celda por defecto. */
     public static final int ENERGIA_MINIMA = 1;
@@ -22,7 +25,7 @@ public final class GeneradorMatrices implements IGeneradorMatrices {
     /**
      * Generador de números pseudoaleatorios de esta instancia.
      */
-    private Random azar = new Random();
+    private static Random azar = new Random();
 
     /**
      * Fija la semilla del generador aleatorio. Con la misma semilla se
@@ -31,8 +34,7 @@ public final class GeneradorMatrices implements IGeneradorMatrices {
      *
      * @param semilla semilla del generador
      */
-    @Override
-    public void establecerSemilla(long semilla) {
+    public static void establecerSemilla(long semilla) {
         azar = new Random(semilla);
     }
 
@@ -45,8 +47,7 @@ public final class GeneradorMatrices implements IGeneradorMatrices {
      * @return matriz nueva con valores aleatorios
      * @throws IllegalArgumentException si alguna dimensión no es positiva
      */
-    @Override
-    public int[][] generarMatrizAleatoria(int filas, int columnas) {
+    public static int[][] generarMatrizAleatoria(int filas, int columnas) {
         return generarMatrizAleatoria(filas, columnas, ENERGIA_MINIMA, ENERGIA_MAXIMA);
     }
 
@@ -62,8 +63,7 @@ public final class GeneradorMatrices implements IGeneradorMatrices {
      * @throws IllegalArgumentException si alguna dimensión no es positiva o
      * si minimo es mayor que maximo
      */
-    @Override
-    public int[][] generarMatrizAleatoria(int filas, int columnas, int minimo, int maximo) {
+    public static int[][] generarMatrizAleatoria(int filas, int columnas, int minimo, int maximo) {
         // Validación de parámetros: una matriz necesita al menos una fila y una columna.
         if (filas <= 0 || columnas <= 0) {
             throw new IllegalArgumentException(
